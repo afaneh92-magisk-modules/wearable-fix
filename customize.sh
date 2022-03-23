@@ -6,18 +6,21 @@ unzip -o "$ZIPFILE" module.prop -d $MODPATH >&2
 
 # paths
 original_files=`grep -lr 'security.wsm' /system/vendor/etc/vintf`
-replace_path="$MODPATH/system/vendor/etc/vintf"
 
 ui_print "- Start patching..."
 mkdir -p $replace_path
 for i in $original_files; do
-  patched_files="$MODPATH$i"
-  cp -f -p $i $replace_path
+  original_file_basename="$(basename "$i")"
+  original_file_path="${i%/$original_file_basename*}"
+  patched_file="$MODPATH$i"
+  replace_path="$MODPATH$original_file_path"
+  mkdir -p $MODPATH/$original_file_path
+  cp -aR $i $MODPATH/$original_file_path
   set_perm_recursive $replace_path 0 0 0755 0755
-  if `sed -i '/<.*security.wsm.*/,/<hal format="hidl">/d' $patched_files` ; then
+  if `sed -i "$(($(awk '/security.wsm/ {print FNR}' $patched_file) - 1)),/<\/hal>/d" $patched_file` ; then
     ui_print "- Successfully patched $i!"
   else
-    ui_print "- Not found security.wsm in xml, Aborting..."
+    ui_print "- Failed to patch security.wsm in $i, Aborting..."
     rm -rf $MODPATH
     abort
   fi
